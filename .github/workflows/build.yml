@@ -16,7 +16,15 @@ jobs:
     - name: Unzip and Find Project
       run: |
         unzip project.zip -d project_temp
+        echo "=== DANH SÁCH THƯ MỤC SAU KHI GIẢI NÉN ==="
+        ls -la project_temp
+        echo "=== TÌM FILE GRADLEW ==="
         GRADLE_DIR=$(find project_temp -name "gradlew" -exec dirname {} \; | head -n 1)
+        echo "Tìm thấy thư mục dự án tại: $GRADLE_DIR"
+        if [ -z "$GRADLE_DIR" ]; then
+          echo "❌ LỖI: Không tìm thấy file gradlew. File zip có thể bị thiếu."
+          exit 1
+        fi
         echo "PROJECT_DIR=$GRADLE_DIR" >> $GITHUB_ENV
 
     - name: Build APK
