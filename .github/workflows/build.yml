@@ -1,0 +1,32 @@
+name: Build CHOLIBI APK
+on: [push, workflow_dispatch]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Java
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+
+    - name: Unzip and Find Project
+      run: |
+        unzip project.zip -d project_temp
+        GRADLE_DIR=$(find project_temp -name "gradlew" -exec dirname {} \; | head -n 1)
+        echo "PROJECT_DIR=$GRADLE_DIR" >> $GITHUB_ENV
+
+    - name: Build APK
+      run: |
+        cd $PROJECT_DIR
+        chmod +x gradlew
+        ./gradlew assembleDebug
+
+    - name: Upload APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: CHOLIBI-App
+        path: "**/app-debug.apk"
