@@ -2,7 +2,7 @@ name: Build CHOLIBI APK
 
 on:
   push:
-    branches: [main]
+    branches: [main, 'chatgpt/cholibi-safe-merge-20261102']
   workflow_dispatch:
 
 permissions:
@@ -75,6 +75,24 @@ jobs:
                                   'package com.cholibi.fixture;\n\nimport com.cholibi.app.R;')
           fixture.write_text(text, encoding='utf-8')
 
+      - name: Verify and bundle the preserved CHOLIBI MASTER
+        shell: python
+        run: |
+          from pathlib import Path
+          import hashlib
+          import subprocess
+
+          source = Path('CHOLIBI_MASTER_HOP_NHAT_AN_TOAN.js')
+          target = Path('project/app/src/main/assets/CHOLIBI_v31_MASTER_FIXED.js')
+          assert source.is_file() and target.is_file(), 'Expected CHOLIBI asset missing'
+          expected = '49ffbb5fff6cb499446c2c8c7ece8a4fa664cd687979c9df8722ef68c1b91e28'
+          actual = hashlib.sha256(source.read_bytes()).hexdigest()
+          assert actual == expected, 'Source checksum mismatch'
+          subprocess.run(['node', '--check', str(source)], check=True)
+          target.write_bytes(source.read_bytes())
+          assert target.read_bytes() == source.read_bytes(), 'Asset replacement failed'
+          print('CHOLIBI source verified:', actual)
+
       - name: Build debug APK
         run: gradle -p project --no-daemon --stacktrace :app:assembleDebug
 
@@ -85,6 +103,22 @@ jobs:
           "$ANDROID_HOME/build-tools/34.0.0/apksigner" verify --verbose dist/CHOLIBI-v31.2-debug.apk
           cd dist
           sha256sum CHOLIBI-v31.2-debug.apk > SHA256SUMS.txt
+
+      - name: Verify APK contains exactly the merged MASTER
+        shell: python
+        run: |
+          from pathlib import Path
+          import hashlib
+          import zipfile
+
+          apk = Path('dist/CHOLIBI-v31.2-debug.apk')
+          source = Path('CHOLIBI_MASTER_HOP_NHAT_AN_TOAN.js').read_bytes()
+          with zipfile.ZipFile(apk) as archive:
+              name = 'assets/CHOLIBI_v31_MASTER_FIXED.js'
+              assert name in archive.namelist(), 'CHOLIBI JS missing from APK'
+              embedded = archive.read(name)
+          assert embedded == source, 'APK asset does not match verified MASTER'
+          print('APK asset SHA256:', hashlib.sha256(embedded).hexdigest())
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
